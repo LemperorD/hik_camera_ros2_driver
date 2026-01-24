@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ### BEGIN INIT INFO
 # Provides:          FGDriverServer
 # Required-Start:    $remote_fs $syslog $local_fs
@@ -9,7 +9,7 @@
 # Description:       FGDriverServer is a daemon to self-starting driver server.
 ### END INIT INFO
 
-SDK_HOME=${MVCAM_SDK_PATH}
+SDK_HOME=/home/ld/nav2_ws/src/hik_camera_ros2_driver/hikSDK
 KERNEL_VERSION=$(uname -r)
 
 # Start the Driver Server

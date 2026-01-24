@@ -1,0 +1,1 @@
+savedcmd_/home/ld/nav2_ws/src/hik_camera_ros2_driver/hikSDK/driver/pcie/TransportLayer/xof/xofframegrabber.o := ld -m elf_x86_64 -z noexecstack   -r -o /home/ld/nav2_ws/src/hik_camera_ros2_driver/hikSDK/driver/pcie/TransportLayer/xof/xofframegrabber.o @/home/ld/nav2_ws/src/hik_camera_ros2_driver/hikSDK/driver/pcie/TransportLayer/xof/xofframegrabber.mod 

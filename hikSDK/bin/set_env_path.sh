@@ -23,26 +23,26 @@ FIND_PATH=${MVCAM_SDK_LIBPATH_OLD//\//\\\/}
 FIND_SOFTWARE_PATH=${MVCAM_SOFTWARE_LIBENV//\//\\\/}
 
 if [ -n "$MV_CAM_SDK_PATH_OLD" ]; then
-	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/64:/}
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/amd64:/}
 	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/32:/}
 	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/armhf:/}
 	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/aarch64:/}
 	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/arm-none:/}
 
-	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/64/}
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/amd64/}
 	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/32/}
 	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/armhf/}
 	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/aarch64/}
 	LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_PATH}\/arm-none/}
 fi
 
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/64:/}
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/amd64:/}
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/32:/}
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/armhf:/}
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/aarch64:/}
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/arm-none:/}
 
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/64/}
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/amd64/}
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/32/}
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/armhf/}
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH//${FIND_SOFTWARE_PATH}\/aarch64/}
@@ -112,26 +112,26 @@ function export_LD_LIBRARY_PATH(){
 
 	
 	if [ -n "$MV_CAM_SDK_PATH_OLD" ]; then
-		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/64://" $2
+		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/amd64://" $2
 		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/32://" $2
 		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/armhf://" $2
 		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/aarch64://" $2
 		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/arm-none://" $2
 		
-		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/64//" $2
+		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/amd64//" $2
 		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/32//" $2
 		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/armhf//" $2
 		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/aarch64//" $2
 		sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_PATH}\/arm-none//" $2	
 	fi
 	
-	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/64://" $2
+	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/amd64://" $2
 	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/32://" $2
 	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/armhf://" $2
 	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/aarch64://" $2
 	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/arm-none://" $2
 	
-	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/64//" $2
+	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/amd64//" $2
 	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/32//" $2
 	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/armhf//" $2
 	sed -i "/^export.LD_LIBRARY_PATH*/s/${FIND_SOFTWARE_PATH}\/aarch64//" $2

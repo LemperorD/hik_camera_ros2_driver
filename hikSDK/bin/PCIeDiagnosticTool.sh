@@ -2,7 +2,7 @@
 
 ROOT_PATH=$(cd "$(dirname "$0")";pwd)
 
-export LD_LIBRARY_PATH=${ROOT_PATH}:/opt/MVS/lib/64
+export LD_LIBRARY_PATH=${ROOT_PATH}:~/nav2_ws/src/hik_camera_ros2_driver/hikSDK/lib/amd64
 
 
 if [ "$EUID" -ne 0 ]; then
