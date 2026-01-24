@@ -19,23 +19,23 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   src/hik_camera_node.cpp
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC hikSDK/include)
+target_include_directories(${PROJECT_NAME} PUBLIC /opt/MVS/include)
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-  target_link_directories(${PROJECT_NAME} PUBLIC hikSDK/lib/amd64)
-  install(
-    DIRECTORY hikSDK/lib/amd64/
-    DESTINATION lib
-  )
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-  target_link_directories(${PROJECT_NAME} PUBLIC hikSDK/lib/arm64)
-  install(
-    DIRECTORY hikSDK/lib/arm64/
-    DESTINATION lib
-  )
-else()
-  message(FATAL_ERROR "Unsupported host system architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}!")
-endif()
+# if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+target_link_directories(${PROJECT_NAME} PUBLIC /opt/MVS/lib/64)
+# install(
+#   DIRECTORY hikSDK/lib/amd64/
+#   DESTINATION lib
+# )
+# elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+#   target_link_directories(${PROJECT_NAME} PUBLIC hikSDK/lib/arm64)
+#   install(
+#     DIRECTORY hikSDK/lib/arm64/
+#     DESTINATION lib
+#   )
+# else()
+#   message(FATAL_ERROR "Unsupported host system architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}!")
+# endif()
 
 target_link_libraries(${PROJECT_NAME}
   FormatConversion
