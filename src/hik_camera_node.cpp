@@ -14,7 +14,7 @@ public:
   explicit HikCameraRos2DriverNode(const rclcpp::NodeOptions & options)
   : Node("hik_camera_ros2_driver", options)
   {
-    RCLCPP_INFO(this->get_logger(), "Starting HikCameraRos2DriverNode!");
+    RCLCPP_INFO(this->get_logger(), "\033[32mStarting HikCameraRos2DriverNode!");
 
     initializeCamera();
     declareParameters();
@@ -35,46 +35,56 @@ public:
       MV_CC_StopGrabbing(camera_handle_);
       MV_CC_CloseDevice(camera_handle_);
       MV_CC_DestroyHandle(&camera_handle_);
+      MV_CC_Finalize();
     }
-    RCLCPP_INFO(this->get_logger(), "HikCameraRos2DriverNode destroyed!");
+    RCLCPP_INFO(this->get_logger(), "\033[32mHikCameraRos2DriverNode destroyed!");
   }
 
 private:
   bool initializeCamera()
   {
-    MV_CC_DEVICE_INFO_LIST device_list;
+    // init sdk
+    MV_CC_Initialize();
 
-    // enum device
+    //enum deviced
+    MV_CC_DEVICE_INFO_LIST device_list;
+    memset(&device_list, 0, sizeof(MV_CC_DEVICE_INFO_LIST));
     while (rclcpp::ok()) {
-      n_ret_ = MV_CC_EnumDevices(MV_USB_DEVICE, &device_list);
+      n_ret_ = MV_CC_EnumDevices(MV_USB_DEVICE|MV_GIGE_DEVICE, &device_list);
       if (n_ret_ != MV_OK) {
-        RCLCPP_ERROR(this->get_logger(), "Failed to enumerate devices, retrying...");
+        RCLCPP_WARN(this->get_logger(), "\033[33mFailed to enumerate devices, retrying...");
         std::this_thread::sleep_for(std::chrono::seconds(1));
       } else if (device_list.nDeviceNum == 0) {
-        RCLCPP_ERROR(this->get_logger(), "No camera found, retrying...");
+        RCLCPP_WARN(this->get_logger(), "\033[33mNo camera found, retrying...");
         std::this_thread::sleep_for(std::chrono::seconds(1));
       } else {
-        RCLCPP_INFO(this->get_logger(), "Found camera count = %d", device_list.nDeviceNum);
+        RCLCPP_INFO(this->get_logger(), "\033[32mFound camera count = %d", device_list.nDeviceNum);
         break;
       }
     }
 
+    if (cameraType_ == GIGE_CAMERA) {
+      tryConnectGigE();
+    } else {
+      tryConnectUSB();
+    }
+
     n_ret_ = MV_CC_CreateHandle(&camera_handle_, device_list.pDeviceInfo[0]);
     if (n_ret_ != MV_OK) {
-      RCLCPP_ERROR(this->get_logger(), "Failed to create camera handle!");
+      RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to create camera handle! nRet: [%x]", n_ret_);
       return false;
     }
 
     n_ret_ = MV_CC_OpenDevice(camera_handle_);
     if (n_ret_ != MV_OK) {
-      RCLCPP_ERROR(this->get_logger(), "Failed to open camera device!");
+      RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to open camera device! nRet: [%x]", n_ret_);
       return false;
     }
 
     // Get camera information
     n_ret_ = MV_CC_GetImageInfo(camera_handle_, &img_info_);
     if (n_ret_ != MV_OK) {
-      RCLCPP_ERROR(this->get_logger(), "Failed to get camera image info!");
+      RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to get camera image info! nRet: [%x]", n_ret_);
       return false;
     }
 
@@ -133,7 +143,7 @@ private:
     if (status == MV_OK) {
       RCLCPP_INFO(this->get_logger(), "ADC Bit Depth set to %s", adc_bit_depth.c_str());
     } else {
-      RCLCPP_ERROR(this->get_logger(), "Failed to set ADC Bit Depth, status = %d", status);
+      RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to set ADC Bit Depth, status = %d", status);
     }
 
     // Pixel format
@@ -143,7 +153,7 @@ private:
     if (status == MV_OK) {
       RCLCPP_INFO(this->get_logger(), "Pixel Format set to %s", pixel_format.c_str());
     } else {
-      RCLCPP_ERROR(this->get_logger(), "Failed to set Pixel Format, status = %d", status);
+      RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to set Pixel Format, status = %d", status);
     }
   }
 
@@ -207,19 +217,19 @@ private:
         if (std::chrono::duration_cast<std::chrono::seconds>(now - last_log_time).count() >= 3) {
           MVCC_FLOATVALUE f_value;
           MV_CC_GetFloatValue(camera_handle_, "ResultingFrameRate", &f_value);
-          RCLCPP_DEBUG(this->get_logger(), "ResultingFrameRate: %f Hz", f_value.fCurValue);
+          RCLCPP_DEBUG(this->get_logger(), "\033[33mResultingFrameRate: %f Hz", f_value.fCurValue);
           last_log_time = now;
         }
 
       } else {
-        RCLCPP_WARN(this->get_logger(), "Get buffer failed! nRet: [%x]", n_ret_);
+        RCLCPP_WARN(this->get_logger(), "\033[33mGet buffer failed! nRet: [%x]", n_ret_);
         MV_CC_StopGrabbing(camera_handle_);
         MV_CC_StartGrabbing(camera_handle_);
         fail_count_++;
       }
 
       if (fail_count_ > 5) {
-        RCLCPP_FATAL(this->get_logger(), "Camera failed!");
+        RCLCPP_FATAL(this->get_logger(), "\033[31mCamera failed!");
         rclcpp::shutdown();
       }
     }
