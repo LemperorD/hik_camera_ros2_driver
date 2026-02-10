@@ -6,7 +6,7 @@ namespace hik_camera_ros2_driver
 HikCameraRos2DriverNode::HikCameraRos2DriverNode(const rclcpp::NodeOptions & options)
   : Node("hik_camera_ros2_driver", options)
 {
-  RCLCPP_INFO(this->get_logger(), "\033[32mStarting HikCameraRos2DriverNode!");
+  RCLCPP_INFO(this->get_logger(), "\033[32mStarting HikCamera Ros2 Driver Node!");
 
   // init camera, declare parameters, start camera
   initializeCamera(); declareParameters(); startCamera();
@@ -34,13 +34,13 @@ HikCameraRos2DriverNode::~HikCameraRos2DriverNode()
 bool HikCameraRos2DriverNode::initializeCamera()
 {
   // init sdk
-  MV_CC_Initialize();
+  n_ret_ = MV_CC_Initialize();
   if (n_ret_ != MV_OK) {
-    std::cerr << "Initialize SDK fail! nRet [0x" << std::hex << n_ret_ << "]" << std::endl;
+    std::cerr << "\033[31mInitialize SDK fail! nRet [0x" << std::hex << n_ret_ << "]" << std::endl;
     return false;
   }
 
-  //enum devices
+  // enum devices
   MV_CC_DEVICE_INFO_LIST device_list;
   memset(&device_list, 0, sizeof(MV_CC_DEVICE_INFO_LIST));
   while (rclcpp::ok()) {
@@ -57,8 +57,9 @@ bool HikCameraRos2DriverNode::initializeCamera()
     }
   }
 
-  if (camera_type_ == GIGE_CAMERA) tryConnectGigE();
-  else tryConnectUSB();
+  // 判断相机类型并连接相机
+  if (camera_type_ == GIGE_CAMERA) tryConnectGigE(device_list);
+  else tryConnectUSB(device_list);
 
   // Init convert param
   image_msg_.data.reserve(img_info_.nHeightMax * img_info_.nWidthMax * 3);
@@ -150,7 +151,7 @@ void HikCameraRos2DriverNode::startCamera()
     camera_info_manager_->loadCameraInfo(camera_info_url);
     camera_info_msg_ = camera_info_manager_->getCameraInfo();
   } else {
-    RCLCPP_WARN(this->get_logger(), "Invalid camera info URL: %s", camera_info_url.c_str());
+    RCLCPP_WARN(this->get_logger(), "\033[33mInvalid camera info URL: %s", camera_info_url.c_str());
   }
 }
 
@@ -249,29 +250,43 @@ rcl_interfaces::msg::SetParametersResult HikCameraRos2DriverNode::dynamicParamet
   return result;
 }
 
-void HikCameraRos2DriverNode::tryConnectGigE()
+void HikCameraRos2DriverNode::tryConnectGigE(MV_CC_DEVICE_INFO_LIST device_list)
 {
-  n_ret_ = MV_CC_CreateHandle(&camera_handle_, &device_info_);
+  MV_CC_DEVICE_INFO stDevInfo; MV_GIGE_DEVICE_INFO stGigEDev;
+  memset(&stDevInfo, 0, sizeof(MV_CC_DEVICE_INFO));
+  memset(&stGigEDev, 0, sizeof(MV_GIGE_DEVICE_INFO));
+  
+  // 解析IP地址
+  parseIp(cameraIp_, stGigEDev.nCurrentIp); parseIp(pcIp_, stGigEDev.nNetExport);
+  stDevInfo.nTLayerType = MV_GIGE_DEVICE; stDevInfo.SpecialInfo.stGigEInfo = stGigEDev;
+  
+  // 创建句柄
+  n_ret_ = MV_CC_CreateHandle(&camera_handle_, &stDevInfo);
   if (n_ret_ != MV_OK) {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to create camera handle! nRet: [%x]", n_ret_);
+    std::cerr << "\033[31mCreate Handle fail! n_ret_ [0x" << std::hex << n_ret_ << "]" << std::endl;
     return;
   }
-
+  
+  // 打开设备
   n_ret_ = MV_CC_OpenDevice(camera_handle_);
   if (n_ret_ != MV_OK) {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to open camera device! nRet: [%x]", n_ret_);
+    std::cerr << "\033[31mOpen device fail! n_ret_ [0x" << std::hex << n_ret_ << "]" << std::endl;
+    MV_CC_DestroyHandle(camera_handle_);
+    camera_handle_ = nullptr;
     return;
   }
-
-  // Get camera information
-  n_ret_ = MV_CC_GetImageInfo(camera_handle_, &img_info_);
-  if (n_ret_ != MV_OK) {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to get camera image info! nRet: [%x]", n_ret_);
-    return;
+  
+  // 获取 GigE 相机的最佳数据包大小
+  int nPacketSize = MV_CC_GetOptimalPacketSize(camera_handle_);
+  if (nPacketSize > 0) {
+    n_ret_ = MV_CC_SetIntValue(camera_handle_, "GevSCPSPacketSize", nPacketSize);
+    if (n_ret_ != MV_OK) {
+        std::cerr << "\033[31mSet Packet Size fail! n_ret_ [0x" << std::hex << n_ret_ << "]" << std::endl;
+    }
   }
 }
 
-void HikCameraRos2DriverNode::tryConnectUSB()
+void HikCameraRos2DriverNode::tryConnectUSB(MV_CC_DEVICE_INFO_LIST device_list)
 {
   n_ret_ = MV_CC_CreateHandle(&camera_handle_, &device_info_);
   if (n_ret_ != MV_OK) {

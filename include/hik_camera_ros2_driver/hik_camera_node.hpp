@@ -10,7 +10,7 @@
 #include "rclcpp/utilities.hpp"
 
 enum CameraType {
-  GIGE_CAMERA, // 使用网口连接相机
+  GIGE_CAMERA = 0, // 使用网口连接相机
   USB_CAMERA // 使用USB连接相机
 };
 
@@ -28,14 +28,18 @@ private:
   void declareParameters();
   void startCamera();
   rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(const std::vector<rclcpp::Parameter> & parameters);
-  void tryConnectGigE();
-  void tryConnectUSB();
+  void tryConnectGigE(MV_CC_DEVICE_INFO_LIST device_list);
+  void tryConnectUSB(MV_CC_DEVICE_INFO_LIST device_list);
   void captureLoop();
   void publishFrame(unsigned char * pData, MV_IMAGE_BASIC_INFO & img_info);
 
 private: // hik相关全局变量
   void *camera_handle_ = nullptr;
   int n_ret_ = MV_OK;
+  int camera_type_;
+  std::string cameraIp_ = ""; // 相机IP地址
+  std::string pcIp_ = ""; // 电脑IP地址
+
   MV_IMAGE_BASIC_INFO img_info_;
   MV_CC_PIXEL_CONVERT_PARAM convert_param_;
   MV_CC_DEVICE_INFO device_info_;
@@ -50,10 +54,16 @@ private:
   std::string camera_name_;
   std::string frame_id_;
   std::string camera_topic_;
-  CameraType camera_type_;
 
   std::thread capture_thread_;
   int fail_count_ = 0;
+
+private: // IP地址解析函数
+  void parseIp(const std::string& ip, unsigned int& parsedIp) {
+      int parts[4];
+      sscanf(ip.c_str(), "%d.%d.%d.%d", &parts[0], &parts[1], &parts[2], &parts[3]);
+      parsedIp = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+  }
 
 }; // class HikCameraRos2DriverNode
 
