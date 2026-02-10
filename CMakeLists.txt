@@ -16,12 +16,10 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
 ament_auto_add_library(${PROJECT_NAME} SHARED
-  src/hik_camera_node.cpp
+  DIRECTORY src
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC
-  include/hik_camera_ros2_driver
-  /opt/MVS/include)
+target_include_directories(${PROJECT_NAME} PUBLIC /opt/MVS/include)
 
 target_link_directories(${PROJECT_NAME} PUBLIC /opt/MVS/lib/64)
 

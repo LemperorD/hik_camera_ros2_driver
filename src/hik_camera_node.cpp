@@ -35,6 +35,10 @@ bool HikCameraRos2DriverNode::initializeCamera()
 {
   // init sdk
   MV_CC_Initialize();
+  if (n_ret_ != MV_OK) {
+    std::cerr << "Initialize SDK fail! nRet [0x" << std::hex << n_ret_ << "]" << std::endl;
+    return false;
+  }
 
   //enum devices
   MV_CC_DEVICE_INFO_LIST device_list;
@@ -55,25 +59,6 @@ bool HikCameraRos2DriverNode::initializeCamera()
 
   if (camera_type_ == GIGE_CAMERA) tryConnectGigE();
   else tryConnectUSB();
-
-  n_ret_ = MV_CC_CreateHandle(&camera_handle_, device_list.pDeviceInfo[0]);
-  if (n_ret_ != MV_OK) {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to create camera handle! nRet: [%x]", n_ret_);
-    return false;
-  }
-
-  n_ret_ = MV_CC_OpenDevice(camera_handle_);
-  if (n_ret_ != MV_OK) {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to open camera device! nRet: [%x]", n_ret_);
-    return false;
-  }
-
-  // Get camera information
-  n_ret_ = MV_CC_GetImageInfo(camera_handle_, &img_info_);
-  if (n_ret_ != MV_OK) {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to get camera image info! nRet: [%x]", n_ret_);
-    return false;
-  }
 
   // Init convert param
   image_msg_.data.reserve(img_info_.nHeightMax * img_info_.nWidthMax * 3);
@@ -266,21 +251,45 @@ rcl_interfaces::msg::SetParametersResult HikCameraRos2DriverNode::dynamicParamet
 
 void HikCameraRos2DriverNode::tryConnectGigE()
 {
-  RCLCPP_INFO(this->get_logger(), "Trying to connect to GigE camera...");
-  // For GigE cameras, we need to set the optimal packet size for better performance
-  n_ret_ = MV_CC_SetIntValue(camera_handle_, "GevSCPSPacketSize", 1500);
+  n_ret_ = MV_CC_CreateHandle(&camera_handle_, &device_info_);
   if (n_ret_ != MV_OK) {
-    RCLCPP_WARN(this->get_logger(), "\033[33mFailed to set packet size! nRet: [%x]", n_ret_);
+    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to create camera handle! nRet: [%x]", n_ret_);
+    return;
+  }
+
+  n_ret_ = MV_CC_OpenDevice(camera_handle_);
+  if (n_ret_ != MV_OK) {
+    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to open camera device! nRet: [%x]", n_ret_);
+    return;
+  }
+
+  // Get camera information
+  n_ret_ = MV_CC_GetImageInfo(camera_handle_, &img_info_);
+  if (n_ret_ != MV_OK) {
+    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to get camera image info! nRet: [%x]", n_ret_);
+    return;
   }
 }
 
 void HikCameraRos2DriverNode::tryConnectUSB()
 {
-  RCLCPP_INFO(this->get_logger(), "Trying to connect to USB camera...");
-  // For USB cameras, we can set the USB traffic control to optimize performance
-  n_ret_ = MV_CC_SetIntValue(camera_handle_, "USBTrafficControl", 1);
+  n_ret_ = MV_CC_CreateHandle(&camera_handle_, &device_info_);
   if (n_ret_ != MV_OK) {
-    RCLCPP_WARN(this->get_logger(), "\033[33mFailed to set USB traffic control! nRet: [%x]", n_ret_);
+    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to create camera handle! nRet: [%x]", n_ret_);
+    return;
+  }
+
+  n_ret_ = MV_CC_OpenDevice(camera_handle_);
+  if (n_ret_ != MV_OK) {
+    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to open camera device! nRet: [%x]", n_ret_);
+    return;
+  }
+
+  // Get camera information
+  n_ret_ = MV_CC_GetImageInfo(camera_handle_, &img_info_);
+  if (n_ret_ != MV_OK) {
+    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to get camera image info! nRet: [%x]", n_ret_);
+    return;
   }
 }
 

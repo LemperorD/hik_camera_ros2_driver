@@ -33,12 +33,14 @@ private:
   void captureLoop();
   void publishFrame(unsigned char * pData, MV_IMAGE_BASIC_INFO & img_info);
 
-private:
+private: // hik相关全局变量
   void *camera_handle_ = nullptr;
   int n_ret_ = MV_OK;
   MV_IMAGE_BASIC_INFO img_info_;
   MV_CC_PIXEL_CONVERT_PARAM convert_param_;
+  MV_CC_DEVICE_INFO device_info_;
 
+private:
   sensor_msgs::msg::Image image_msg_;
   sensor_msgs::msg::CameraInfo camera_info_msg_;
   image_transport::CameraPublisher camera_pub_;
@@ -55,6 +57,6 @@ private:
 
 }; // class HikCameraRos2DriverNode
 
-} // hik_camera_ros2_driver
+} // namespace hik_camera_ros2_driver
 
 #endif // HIK_ROS_HPP_
