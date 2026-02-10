@@ -1,5 +1,9 @@
 /hik_camera_ros2_driver:
   ros__parameters:
+    camera_type: 0 # 0:gige, 1:usb
+    pcIp: 
+    camIp: 
+
     camera_info_url: "package://hik_camera_ros2_driver/config/camera_info.yaml"
     pixel_format: "BayerRG8"        # Recommended Option: "RGB8Packed", "BayerRG8"
     adc_bit_depth: "Bits_8"         # If using "BayerRG8", <adc_bit_depth> must be set as "Bits_8"; otherwise, it can be "Bits_8" or "Bits_12"

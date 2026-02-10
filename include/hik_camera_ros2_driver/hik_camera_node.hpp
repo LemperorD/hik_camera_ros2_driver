@@ -28,12 +28,11 @@ private:
   void declareParameters();
   void startCamera();
   rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(const std::vector<rclcpp::Parameter> & parameters);
-  void tryConnectGigE(MV_CC_DEVICE_INFO_LIST device_list);
-  void tryConnectUSB(MV_CC_DEVICE_INFO_LIST device_list);
+  void tryConnectGigE(); void tryConnectUSB();
   void captureLoop();
   void publishFrame(unsigned char * pData, MV_IMAGE_BASIC_INFO & img_info);
 
-private: // hik相关全局变量
+private: // MVS相关全局变量
   void *camera_handle_ = nullptr;
   int n_ret_ = MV_OK;
   int camera_type_;
@@ -44,7 +43,7 @@ private: // hik相关全局变量
   MV_CC_PIXEL_CONVERT_PARAM convert_param_;
   MV_CC_DEVICE_INFO device_info_;
 
-private:
+private: // ROS相关全局变量
   sensor_msgs::msg::Image image_msg_;
   sensor_msgs::msg::CameraInfo camera_info_msg_;
   image_transport::CameraPublisher camera_pub_;

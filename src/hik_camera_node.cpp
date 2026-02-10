@@ -8,6 +8,11 @@ HikCameraRos2DriverNode::HikCameraRos2DriverNode(const rclcpp::NodeOptions & opt
 {
   RCLCPP_INFO(this->get_logger(), "\033[32mStarting HikCamera Ros2 Driver Node!");
 
+  // init camera type & ip/usb
+  camera_type_ = this->declare_parameter("camera_type", 0); // 0:gige, 1:usb
+  pcIp_ = this->declare_parameter("pcIp", "");
+  cameraIp_ = this->declare_parameter("cameraIp", "");
+
   // init camera, declare parameters, start camera
   initializeCamera(); declareParameters(); startCamera();
 
@@ -40,7 +45,7 @@ bool HikCameraRos2DriverNode::initializeCamera()
     return false;
   }
 
-  // enum devices
+  // 枚举设备，主要用于检测是否连接相机以及堵塞线程
   MV_CC_DEVICE_INFO_LIST device_list;
   memset(&device_list, 0, sizeof(MV_CC_DEVICE_INFO_LIST));
   while (rclcpp::ok()) {
@@ -58,8 +63,8 @@ bool HikCameraRos2DriverNode::initializeCamera()
   }
 
   // 判断相机类型并连接相机
-  if (camera_type_ == GIGE_CAMERA) tryConnectGigE(device_list);
-  else tryConnectUSB(device_list);
+  if (camera_type_ == GIGE_CAMERA) tryConnectGigE();
+  else tryConnectUSB();
 
   // Init convert param
   image_msg_.data.reserve(img_info_.nHeightMax * img_info_.nWidthMax * 3);
@@ -250,7 +255,7 @@ rcl_interfaces::msg::SetParametersResult HikCameraRos2DriverNode::dynamicParamet
   return result;
 }
 
-void HikCameraRos2DriverNode::tryConnectGigE(MV_CC_DEVICE_INFO_LIST device_list)
+void HikCameraRos2DriverNode::tryConnectGigE()
 {
   MV_CC_DEVICE_INFO stDevInfo; MV_GIGE_DEVICE_INFO stGigEDev;
   memset(&stDevInfo, 0, sizeof(MV_CC_DEVICE_INFO));
@@ -271,8 +276,7 @@ void HikCameraRos2DriverNode::tryConnectGigE(MV_CC_DEVICE_INFO_LIST device_list)
   n_ret_ = MV_CC_OpenDevice(camera_handle_);
   if (n_ret_ != MV_OK) {
     std::cerr << "\033[31mOpen device fail! n_ret_ [0x" << std::hex << n_ret_ << "]" << std::endl;
-    MV_CC_DestroyHandle(camera_handle_);
-    camera_handle_ = nullptr;
+    MV_CC_DestroyHandle(camera_handle_); camera_handle_ = nullptr;
     return;
   }
   
@@ -281,12 +285,13 @@ void HikCameraRos2DriverNode::tryConnectGigE(MV_CC_DEVICE_INFO_LIST device_list)
   if (nPacketSize > 0) {
     n_ret_ = MV_CC_SetIntValue(camera_handle_, "GevSCPSPacketSize", nPacketSize);
     if (n_ret_ != MV_OK) {
-        std::cerr << "\033[31mSet Packet Size fail! n_ret_ [0x" << std::hex << n_ret_ << "]" << std::endl;
+      std::cerr << "\033[31mSet Packet Size fail! n_ret_ [0x" << std::hex << n_ret_ << "]" << std::endl;
+      return;
     }
   }
 }
 
-void HikCameraRos2DriverNode::tryConnectUSB(MV_CC_DEVICE_INFO_LIST device_list)
+void HikCameraRos2DriverNode::tryConnectUSB()
 {
   n_ret_ = MV_CC_CreateHandle(&camera_handle_, &device_info_);
   if (n_ret_ != MV_OK) {
