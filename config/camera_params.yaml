@@ -3,6 +3,7 @@
     camera_type: 0 # 0:gige, 1:usb
     pcIp: 192.168.10.2
     cameraIp: 192.168.10.10
+    device_index: 0
 
     camera_info_url: "package://hik_camera_ros2_driver/config/camera_info.yaml"
     pixel_format: "BayerRG8"        # Recommended Option: "RGB8Packed", "BayerRG8"

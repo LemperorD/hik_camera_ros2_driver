@@ -6,7 +6,7 @@ namespace hik_camera_ros2_driver
 HikCameraRos2DriverNode::HikCameraRos2DriverNode(const rclcpp::NodeOptions & options)
   : Node("hik_camera_ros2_driver", options)
 {
-  RCLCPP_INFO(this->get_logger(), "\033[32mStarting HikCamera Ros2 Driver Node!");
+  std::cout << "\033[32mStarting HikCamera Ros2 Driver Node!\033[0m" << std::endl;
 
   // init camera type & ip/usb
   camera_type_ = this->declare_parameter("camera_type", 0); // 0:gige, 1:usb
@@ -42,7 +42,7 @@ bool HikCameraRos2DriverNode::initializeCamera()
   // init sdk
   n_ret_ = MV_CC_Initialize();
   if (n_ret_ != MV_OK) {
-    std::cerr << "\033[31mInitialize SDK fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
+    std::cerr << "\033[31mInitialize SDK fail! nRet[0x" << std::hex << n_ret_ << "]\033[0m" << std::endl;
     return false;
   }
 
@@ -52,10 +52,10 @@ bool HikCameraRos2DriverNode::initializeCamera()
   while (rclcpp::ok()) {
     n_ret_ = MV_CC_EnumDevices(MV_USB_DEVICE|MV_GIGE_DEVICE, &device_list);
     if (n_ret_ != MV_OK) {
-      RCLCPP_WARN(this->get_logger(), "\033[33mFailed to enumerate devices, retrying...");
+      std::cout << "\033[33mFailed to enumerate devices, retrying...\033[0m" << std::endl;
       std::this_thread::sleep_for(std::chrono::seconds(1));
     } else if (device_list.nDeviceNum == 0) {
-      RCLCPP_WARN(this->get_logger(), "\033[33mNo camera found, retrying...");
+      std::cout << "\033[33mNo camera found, retrying...\033[0m" << std::endl;
       std::this_thread::sleep_for(std::chrono::seconds(1));
     } else {
       RCLCPP_INFO(this->get_logger(), "\033[32mFound camera count = %d", device_list.nDeviceNum);
@@ -66,6 +66,12 @@ bool HikCameraRos2DriverNode::initializeCamera()
   // 判断相机类型并连接相机
   if (camera_type_ == GIGE_CAMERA) tryConnectGigE();
   else tryConnectUSB();
+
+  n_ret_ = MV_CC_GetImageInfo(camera_handle_, &img_info_);
+  if (n_ret_ != MV_OK) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to get camera image info!");
+    return false;
+  }
 
   // Init convert param
   image_msg_.data.reserve(img_info_.nHeightMax * img_info_.nWidthMax * 3);
@@ -122,7 +128,8 @@ void HikCameraRos2DriverNode::declareParameters()
   if (status == MV_OK) {
     RCLCPP_INFO(this->get_logger(), "ADC Bit Depth set to %s", adc_bit_depth.c_str());
   } else {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to set ADC Bit Depth, status = %d", status);
+    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to set ADC Bit Depth, status = %d, fallback to Bits_8", status);
+    MV_CC_SetEnumValueByString(camera_handle_, "ADCBitDepth", "Bits_8");
   }
 
   // Pixel format
@@ -171,9 +178,10 @@ void HikCameraRos2DriverNode::captureLoop()
 
   while (rclcpp::ok()) {
     n_ret_ = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 1000);
-    if (MV_OK == n_ret_) {
+    if (n_ret_ == MV_OK) {
       convert_param_.pDstBuffer = image_msg_.data.data();
       convert_param_.nDstBufferSize = image_msg_.data.size();
+
       convert_param_.pSrcData = out_frame.pBufAddr;
       convert_param_.nSrcDataLen = out_frame.stFrameInfo.nFrameLen;
       convert_param_.enSrcPixelType = out_frame.stFrameInfo.enPixelType;
@@ -254,12 +262,6 @@ rcl_interfaces::msg::SetParametersResult HikCameraRos2DriverNode::dynamicParamet
   }
 
   return result;
-}
-
-void HikCameraRos2DriverNode::publishFrame(unsigned char * pData, MV_IMAGE_BASIC_INFO & img_info)
-{
-  // This function is currently not used since we convert and publish frames directly in the capture loop.
-  // However, it can be used in the future if we want to offload conversion to a separate thread.
 }
 
 void HikCameraRos2DriverNode::tryConnectGigE()

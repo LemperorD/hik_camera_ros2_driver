@@ -30,7 +30,6 @@ private:
   rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(const std::vector<rclcpp::Parameter> & parameters);
   void tryConnectGigE(); void tryConnectUSB();
   void captureLoop();
-  void publishFrame(unsigned char * pData, MV_IMAGE_BASIC_INFO & img_info);
 
 private: // MVS相关全局变量
   void *camera_handle_ = nullptr;
@@ -42,7 +41,6 @@ private: // MVS相关全局变量
 
   MV_IMAGE_BASIC_INFO img_info_;
   MV_CC_PIXEL_CONVERT_PARAM convert_param_;
-  MV_CC_DEVICE_INFO device_info_;
 
 private: // ROS相关全局变量
   sensor_msgs::msg::Image image_msg_;
