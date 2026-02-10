@@ -10,8 +10,9 @@ HikCameraRos2DriverNode::HikCameraRos2DriverNode(const rclcpp::NodeOptions & opt
 
   // init camera type & ip/usb
   camera_type_ = this->declare_parameter("camera_type", 0); // 0:gige, 1:usb
-  pcIp_ = this->declare_parameter("pcIp", "");
-  cameraIp_ = this->declare_parameter("cameraIp", "");
+  pcIp_ = this->declare_parameter("pcIp", "192.168.10.2");
+  cameraIp_ = this->declare_parameter("cameraIp", "192.168.10.10");
+  deviceIndex_ = this->declare_parameter("device_index", 0);
 
   // init camera, declare parameters, start camera
   initializeCamera(); declareParameters(); startCamera();
@@ -33,7 +34,7 @@ HikCameraRos2DriverNode::~HikCameraRos2DriverNode()
     MV_CC_DestroyHandle(&camera_handle_);
     MV_CC_Finalize();
   }
-  RCLCPP_INFO(this->get_logger(), "\033[32mHikCameraRos2DriverNode destroyed!");
+  std::cout << "\033[32mHikCamera Ros2 Driver Node destroyed!\033[0m" << std::endl;
 }
 
 bool HikCameraRos2DriverNode::initializeCamera()
@@ -41,7 +42,7 @@ bool HikCameraRos2DriverNode::initializeCamera()
   // init sdk
   n_ret_ = MV_CC_Initialize();
   if (n_ret_ != MV_OK) {
-    std::cerr << "\033[31mInitialize SDK fail! nRet [0x" << std::hex << n_ret_ << "]" << std::endl;
+    std::cerr << "\033[31mInitialize SDK fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
     return false;
   }
 
@@ -255,6 +256,12 @@ rcl_interfaces::msg::SetParametersResult HikCameraRos2DriverNode::dynamicParamet
   return result;
 }
 
+void HikCameraRos2DriverNode::publishFrame(unsigned char * pData, MV_IMAGE_BASIC_INFO & img_info)
+{
+  // This function is currently not used since we convert and publish frames directly in the capture loop.
+  // However, it can be used in the future if we want to offload conversion to a separate thread.
+}
+
 void HikCameraRos2DriverNode::tryConnectGigE()
 {
   MV_CC_DEVICE_INFO stDevInfo; MV_GIGE_DEVICE_INFO stGigEDev;
@@ -262,20 +269,22 @@ void HikCameraRos2DriverNode::tryConnectGigE()
   memset(&stGigEDev, 0, sizeof(MV_GIGE_DEVICE_INFO));
   
   // 解析IP地址
+  std::cout << "\033[32mPC IP: " << pcIp_ << "\033[0m" <<std::endl;
+  std::cout << "\033[32mGigE Camera IP: " << cameraIp_ << "\033[0m" <<std::endl;
   parseIp(cameraIp_, stGigEDev.nCurrentIp); parseIp(pcIp_, stGigEDev.nNetExport);
   stDevInfo.nTLayerType = MV_GIGE_DEVICE; stDevInfo.SpecialInfo.stGigEInfo = stGigEDev;
   
   // 创建句柄
   n_ret_ = MV_CC_CreateHandle(&camera_handle_, &stDevInfo);
   if (n_ret_ != MV_OK) {
-    std::cerr << "\033[31mCreate Handle fail! n_ret_ [0x" << std::hex << n_ret_ << "]" << std::endl;
+    std::cerr << "\033[31mCreate Handle fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
     return;
   }
   
   // 打开设备
   n_ret_ = MV_CC_OpenDevice(camera_handle_);
   if (n_ret_ != MV_OK) {
-    std::cerr << "\033[31mOpen device fail! n_ret_ [0x" << std::hex << n_ret_ << "]" << std::endl;
+    std::cerr << "\033[31mOpen device fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
     MV_CC_DestroyHandle(camera_handle_); camera_handle_ = nullptr;
     return;
   }
@@ -285,7 +294,7 @@ void HikCameraRos2DriverNode::tryConnectGigE()
   if (nPacketSize > 0) {
     n_ret_ = MV_CC_SetIntValue(camera_handle_, "GevSCPSPacketSize", nPacketSize);
     if (n_ret_ != MV_OK) {
-      std::cerr << "\033[31mSet Packet Size fail! n_ret_ [0x" << std::hex << n_ret_ << "]" << std::endl;
+      std::cerr << "\033[31mSet Packet Size fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
       return;
     }
   }
@@ -293,27 +302,43 @@ void HikCameraRos2DriverNode::tryConnectGigE()
 
 void HikCameraRos2DriverNode::tryConnectUSB()
 {
-  n_ret_ = MV_CC_CreateHandle(&camera_handle_, &device_info_);
+  // 枚举USB设备
+  MV_CC_DEVICE_INFO_LIST stDeviceList;
+  memset(&stDeviceList, 0, sizeof(MV_CC_DEVICE_INFO_LIST));
+  
+  n_ret_ = MV_CC_EnumDevices(MV_USB_DEVICE, &stDeviceList);
   if (n_ret_ != MV_OK) {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to create camera handle! nRet: [%x]", n_ret_);
+    std::cerr << "\033[31mEnum USB devices fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
+    return;
+  }
+  
+  if (stDeviceList.nDeviceNum == 0) {
+    std::cerr << "\033[31mNo USB camera found!\033[0m" << std::endl;
+    return;
+  }
+  
+  if (deviceIndex_ >= static_cast<int>(stDeviceList.nDeviceNum)) {
+    std::cerr << "\033[31mDevice index out of range! Found " << stDeviceList.nDeviceNum << " devices.\033[0m" << std::endl;
+    return;
+  }
+  
+  // 创建句柄
+  n_ret_ = MV_CC_CreateHandle(&camera_handle_, stDeviceList.pDeviceInfo[deviceIndex_]);
+  if (n_ret_ != MV_OK) {
+    std::cerr << "\033[31mCreate Handle fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
     return;
   }
 
+  // 打开设备
   n_ret_ = MV_CC_OpenDevice(camera_handle_);
   if (n_ret_ != MV_OK) {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to open camera device! nRet: [%x]", n_ret_);
-    return;
-  }
-
-  // Get camera information
-  n_ret_ = MV_CC_GetImageInfo(camera_handle_, &img_info_);
-  if (n_ret_ != MV_OK) {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to get camera image info! nRet: [%x]", n_ret_);
+    std::cerr << "\033[31mOpen device fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
+    MV_CC_DestroyHandle(camera_handle_); camera_handle_  = nullptr;
     return;
   }
 }
 
-}  // namespace hik_camera_ros2_driver
+} // namespace hik_camera_ros2_driver
 
 #include "rclcpp_components/register_node_macro.hpp"
 RCLCPP_COMPONENTS_REGISTER_NODE(hik_camera_ros2_driver::HikCameraRos2DriverNode)

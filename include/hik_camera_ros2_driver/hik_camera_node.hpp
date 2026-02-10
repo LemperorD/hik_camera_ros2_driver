@@ -38,6 +38,7 @@ private: // MVS相关全局变量
   int camera_type_;
   std::string cameraIp_ = ""; // 相机IP地址
   std::string pcIp_ = ""; // 电脑IP地址
+  int deviceIndex_ = 0;
 
   MV_IMAGE_BASIC_INFO img_info_;
   MV_CC_PIXEL_CONVERT_PARAM convert_param_;
