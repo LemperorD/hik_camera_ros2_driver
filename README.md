@@ -103,3 +103,16 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 ```bash
 ros2 launch hik_camera_ros2_driver hik_camera_launch.py
 ```
+
+## 3. ToDoList
+
+- [ ] **多相机驱动**
+  - 目前看来有以下两种实现方式：
+  - 1.在yaml文件中设置相机数量参数且对应好gige相机的ip或者usb相机的deviceIndex，然后在cpp中创建句柄列表并开启对应相机
+  - 2.构建相机句柄向量的全局变量，在枚举相机设备时匹配yaml文件的每一个相机设备，匹配成功时创建句柄对象并放入向量，然后用for循环一同打开设备
+- [ ] **相机标定测试**
+  - 现在使用的是ros2官方给的驱动程序，因为手上没有标定板所以还没有测试，如果测试后发现实际效果不好可能需要自己来写相机标定程序
+- [ ] **相机参数配置**
+  - 现有的参数配置选项较少，可能需要配置更多参数
+- [ ] **重连逻辑**
+  - 仿照现有RM视觉仓库来写，需求不大
