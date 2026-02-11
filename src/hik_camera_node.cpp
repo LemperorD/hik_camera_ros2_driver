@@ -120,18 +120,6 @@ void HikCameraRos2DriverNode::declareParameters()
 
   int status;
 
-  // ADC Bit Depth
-  param_desc.description = "ADC Bit Depth";
-  param_desc.additional_constraints = "Supported values: Bits_8, Bits_12";
-  std::string adc_bit_depth = this->declare_parameter("adc_bit_depth", "Bits_8", param_desc);
-  status = MV_CC_SetEnumValueByString(camera_handle_, "ADCBitDepth", adc_bit_depth.c_str());
-  if (status == MV_OK) {
-    RCLCPP_INFO(this->get_logger(), "ADC Bit Depth set to %s", adc_bit_depth.c_str());
-  } else {
-    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to set ADC Bit Depth, status = %d, fallback to Bits_8", status);
-    MV_CC_SetEnumValueByString(camera_handle_, "ADCBitDepth", "Bits_8");
-  }
-
   // Pixel format
   param_desc.description = "Pixel Format";
   std::string pixel_format = this->declare_parameter("pixel_format", "RGB8Packed", param_desc);
