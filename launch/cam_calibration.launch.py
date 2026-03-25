@@ -73,8 +73,9 @@ def generate_launch_description():
         arguments=[
             "--size", f"{board_w}x{board_h}",
             "--square", str(square_m),
-            "image:=/camera/image",
-            "camera:=/camera"
+            "--ros-args",
+            "--remap", "image:=/camera/image",
+            "--remap", "camera:=/camera"
         ]
     )
 
