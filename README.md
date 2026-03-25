@@ -5,9 +5,10 @@
 借鉴[北极熊战队开发的海康工业相机ROS2驱动程序](https://github.com/SMBU-PolarBear-Robotics-Team/hik_camera_ros2_driver.git)，在此基础上进行部分改动。改动如下：
 
 - 更改MVS依赖方式，现在需要**在本机下载MVS**使用，而不是将头文件与库文件一并放入功能包，后文将详述如何处理
-- 增加gige相机驱动，可以在yaml文件中进行选择，同时可以打开固定ip或usb设备序列号
+- 可以在yaml文件中进行选择，同时可以打开固定ip或usb设备序列号
 - 删除``ADC Bit Depth``参数的修改，实测发现大部分海康相机似乎不支持该参数的修改
 - 将MVS官方文档复制在``doc``文件夹下，方便后续的同学进行二次开发
+- 加入相机标定程序，使用ros2官方提供的``camera_calibration``功能包，其单目相机标定教程链接如下：https://docs.ros.org/en/ros2_packages/rolling/api/camera_calibration/doc/tutorial_mono.html
 
 ## 1. ROS2相关API介绍
 
