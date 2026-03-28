@@ -23,7 +23,7 @@ public:
   explicit HikCameraRos2DriverNode(const rclcpp::NodeOptions & options);
   ~HikCameraRos2DriverNode() override;
 
-private:
+private: // function
   bool initializeCamera();
   void declareParameters();
   void startCamera();
