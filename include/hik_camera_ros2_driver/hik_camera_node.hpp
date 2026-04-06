@@ -25,7 +25,7 @@ public:
 
 private: // function
   bool initializeCamera();
-  void declareParameters();
+  void configureParameters();
   void startCamera();
   rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(const std::vector<rclcpp::Parameter> & parameters);
   void tryConnectGigE(); void tryConnectUSB();
@@ -42,6 +42,8 @@ private: // MVS相关全局变量
   MV_IMAGE_BASIC_INFO img_info_;
   MV_CC_PIXEL_CONVERT_PARAM convert_param_;
 
+  bool trigger_mode_ = 0; // 触发模式，默认为关闭
+
 private: // ROS相关全局变量
   sensor_msgs::msg::Image image_msg_;
   sensor_msgs::msg::CameraInfo camera_info_msg_;
@@ -57,10 +59,10 @@ private: // ROS相关全局变量
   int fail_count_ = 0;
 
 private: // IP地址解析函数
-  void parseIp(const std::string& ip, unsigned int& parsedIp) {
-      int parts[4];
-      sscanf(ip.c_str(), "%d.%d.%d.%d", &parts[0], &parts[1], &parts[2], &parts[3]);
-      parsedIp = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+  inline void parseIp(const std::string& ip, unsigned int& parsedIp) {
+    int parts[4];
+    sscanf(ip.c_str(), "%d.%d.%d.%d", &parts[0], &parts[1], &parts[2], &parts[3]);
+    parsedIp = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
   }
 
 }; // class HikCameraRos2DriverNode

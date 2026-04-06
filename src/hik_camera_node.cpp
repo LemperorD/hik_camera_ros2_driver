@@ -15,7 +15,7 @@ HikCameraRos2DriverNode::HikCameraRos2DriverNode(const rclcpp::NodeOptions & opt
   deviceIndex_ = this->declare_parameter("device_index", 0);
 
   // init camera, declare parameters, start camera
-  initializeCamera(); declareParameters(); startCamera();
+  initializeCamera(); configureParameters(); startCamera();
 
   params_callback_handle_ = this->add_on_set_parameters_callback(
     std::bind(&HikCameraRos2DriverNode::dynamicParametersCallback, this, std::placeholders::_1));
@@ -82,7 +82,7 @@ bool HikCameraRos2DriverNode::initializeCamera()
   return true;
 }
 
-void HikCameraRos2DriverNode::declareParameters()
+void HikCameraRos2DriverNode::configureParameters()
 {
   rcl_interfaces::msg::ParameterDescriptor param_desc;
   MVCC_FLOATVALUE f_value;
@@ -118,9 +118,8 @@ void HikCameraRos2DriverNode::declareParameters()
   MV_CC_SetFloatValue(camera_handle_, "Gain", gain);
   RCLCPP_INFO(this->get_logger(), "Gain: %f", gain);
 
-  int status;
-
   // Pixel format
+  int status;
   param_desc.description = "Pixel Format";
   std::string pixel_format = this->declare_parameter("pixel_format", "RGB8Packed", param_desc);
   status = MV_CC_SetEnumValueByString(camera_handle_, "PixelFormat", pixel_format.c_str());
@@ -128,6 +127,22 @@ void HikCameraRos2DriverNode::declareParameters()
     RCLCPP_INFO(this->get_logger(), "Pixel Format set to %s", pixel_format.c_str());
   } else {
     RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to set Pixel Format, status = %d", status);
+  }
+
+  // Trigger mode
+  param_desc.description = "Trigger Mode";
+  bool trigger_mode = this->declare_parameter("trigger_mode", 0, param_desc);
+  uint8_t trigger_source = this->declare_parameter("trigger_source", 0, param_desc);
+  uint8_t trigger_activation = this->declare_parameter("trigger_activation", 0, param_desc);
+  status = MV_CC_SetEnumValue(camera_handle_, "TriggerMode", trigger_mode);
+  if (status == MV_OK) {
+    if (trigger_mode) {
+      MV_CC_SetEnumValue(camera_handle_, "TriggerSource", trigger_source);
+      MV_CC_SetEnumValue(camera_handle_, "TriggerActivation", trigger_activation);
+    }
+    RCLCPP_INFO(this->get_logger(), "Trigger Mode set to %s", trigger_mode ? "On" : "Off");
+  } else {
+    RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to set Trigger Mode, status = %d", status);
   }
 }
 
