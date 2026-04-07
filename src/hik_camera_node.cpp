@@ -152,6 +152,8 @@ void HikCameraRos2DriverNode::startCamera()
   camera_name_ = this->declare_parameter("camera_name", "camera");
   frame_id_ = this->declare_parameter("frame_id", camera_name_ + "_optical_frame");
   camera_topic_ = this->declare_parameter("camera_topic", camera_name_ + "/image");
+  image_msg_.header.frame_id = frame_id_;
+  image_msg_.encoding = "rgb8";
 
   auto qos = use_sensor_data_qos ? rmw_qos_profile_sensor_data : rmw_qos_profile_default;
   camera_pub_ = image_transport::create_camera_publisher(this, camera_topic_, qos);
@@ -176,9 +178,6 @@ void HikCameraRos2DriverNode::captureLoop()
   MV_FRAME_OUT out_frame;
   RCLCPP_INFO(this->get_logger(), "Publishing image!");
 
-  image_msg_.header.frame_id = frame_id_;
-  image_msg_.encoding = "rgb8";
-
   while (rclcpp::ok()) {
     n_ret_ = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 1000);
     if (n_ret_ == MV_OK) {
@@ -196,6 +195,20 @@ void HikCameraRos2DriverNode::captureLoop()
       image_msg_.width = out_frame.stFrameInfo.nWidth;
       image_msg_.step = out_frame.stFrameInfo.nWidth * 3;
       image_msg_.data.resize(image_msg_.width * image_msg_.height * 3);
+
+#ifdef SYNC_BOARD_MACRO_HPP // 时间同步
+      rclcpp::Time timestamp;
+      uint64_t timestamp_us;
+      uint64_t now_timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+      if (client_ && client_->requestCameraTimestamp(now_timestamp_us, timestamp_us)) {
+        timestamp = rclcpp::Time(timestamp_us);
+        RCLCPP_INFO(this->get_logger(), "Camera timestamp: %ld us", timestamp_us);
+      } else {
+        timestamp = this->now();
+        RCLCPP_WARN(this->get_logger(), "Failed to get camera timestamp, using system time");
+      }
+#endif
 
       camera_info_msg_.header = image_msg_.header;
       camera_pub_.publish(image_msg_, camera_info_msg_);

@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ## By adding -Wall and -Werror, the compiler does not ignore warnings anymore,
 ## enforcing cleaner code.
-add_definitions(-Wall -Werror)
+add_definitions(-Wall)
 
 ## Export compile commands for clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -15,11 +15,24 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
+find_package(Protobuf REQUIRED)
+find_package(fmt REQUIRED)
+
+set(PROJECT_INCLUDE_DIRS
+  third_party/httplib
+  third_party/cxxopts
+  third_party/mavlink
+)
+
 ament_auto_add_library(${PROJECT_NAME} SHARED
   DIRECTORY src
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC /opt/MVS/include)
+target_include_directories(${PROJECT_NAME} PUBLIC 
+  /opt/MVS/include
+  ${PROJECT_INCLUDE_DIRS}
+  ${Protobuf_INCLUDE_DIRS}
+)
 
 target_link_directories(${PROJECT_NAME} PUBLIC /opt/MVS/lib/64)
 

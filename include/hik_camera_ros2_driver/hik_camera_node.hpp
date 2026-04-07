@@ -9,6 +9,8 @@
 #include "rclcpp/logging.hpp"
 #include "rclcpp/utilities.hpp"
 
+#include "sync_board/sync_board_macro.hpp"
+
 enum CameraType {
   GIGE_CAMERA = 0, // 使用网口连接相机
   USB_CAMERA // 使用USB连接相机
@@ -64,6 +66,11 @@ private: // IP地址解析函数
     sscanf(ip.c_str(), "%d.%d.%d.%d", &parts[0], &parts[1], &parts[2], &parts[3]);
     parsedIp = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
   }
+
+#ifdef SYNC_BOARD_MACRO_HPP
+private: // 时间同步相关
+  std::unique_ptr<SyncClient> client_;
+#endif
 
 }; // class HikCameraRos2DriverNode
 
