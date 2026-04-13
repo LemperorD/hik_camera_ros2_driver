@@ -2,12 +2,16 @@
 #define HIK_ROS_HPP_
 
 #include <string>
+#include <memory>
+#include <mutex>
+#include <thread>
 
 #include "MvCameraControl.h"
 #include "camera_info_manager/camera_info_manager.hpp"
 #include "image_transport/image_transport.hpp"
 #include "rclcpp/logging.hpp"
 #include "rclcpp/utilities.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 
 #include "sync_board/sync_board_macro.hpp"
 
@@ -29,6 +33,7 @@ private: // function
   bool initializeCamera();
   void configureParameters();
   void startCamera();
+  void syncReceiveLoop();
   rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(const std::vector<rclcpp::Parameter> & parameters);
   bool tryConnectGigE();
   bool tryConnectUSB();
@@ -59,6 +64,15 @@ private: // ROS相关全局变量
   std::string camera_topic_;
 
   std::thread capture_thread_;
+  std::thread sync_receive_thread_;
+  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+  uint64_t imu_time_us_ = 0;
+  double imu_ax_ = 0.0;
+  double imu_ay_ = 0.0;
+  double imu_az_ = 0.0;
+  double imu_gx_ = 0.0;
+  double imu_gy_ = 0.0;
+  double imu_gz_ = 0.0;
   int fail_count_ = 0;
 
 private: // IP地址解析函数

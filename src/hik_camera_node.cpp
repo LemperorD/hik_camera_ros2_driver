@@ -21,10 +21,19 @@ HikCameraRos2DriverNode::HikCameraRos2DriverNode(const rclcpp::NodeOptions & opt
     std::bind(&HikCameraRos2DriverNode::dynamicParametersCallback, this, std::placeholders::_1));
 
   capture_thread_ = std::thread(&HikCameraRos2DriverNode::captureLoop, this);
+  std::cout << "\033[32mCapture receive thread started!\033[0m" << std::endl;
+
+  if (trigger_mode_ && client_ && !sync_receive_thread_.joinable()) {
+    std::cout << "\033[32mSync receive thread started!\033[0m" << std::endl;
+    sync_receive_thread_ = std::thread(&HikCameraRos2DriverNode::syncReceiveLoop, this);
+  }
 }
 
 HikCameraRos2DriverNode::~HikCameraRos2DriverNode()
 {
+  if (sync_receive_thread_.joinable()) {
+    sync_receive_thread_.join();
+  }
   if (capture_thread_.joinable()) {
     capture_thread_.join();
   }
@@ -131,17 +140,23 @@ void HikCameraRos2DriverNode::configureParameters()
 
   // Trigger mode
   param_desc.description = "Trigger Mode";
-  bool trigger_mode = this->declare_parameter("trigger_mode", 0, param_desc);
+  trigger_mode_ = this->declare_parameter("trigger_mode", 0, param_desc);
   uint8_t trigger_source = this->declare_parameter("trigger_source", 0, param_desc);
   uint8_t trigger_activation = this->declare_parameter("trigger_activation", 0, param_desc);
-  status = MV_CC_SetEnumValue(camera_handle_, "TriggerMode", trigger_mode);
+  status = MV_CC_SetEnumValue(camera_handle_, "TriggerMode", trigger_mode_);
   if (status == MV_OK) {
-    if (trigger_mode) {
+    if (trigger_mode_) {
+      std::cout << "start creating client" << std::endl;
       client_ = std::make_unique<SyncClient>("127.0.0.1", BASE_PORT);
+      if (client_->getDataPort() > 0) {
+        RCLCPP_INFO(this->get_logger(), "Sync client connected on data port %d", client_->getDataPort());
+      } else {
+        RCLCPP_WARN(this->get_logger(), "Sync client created but failed to allocate data port");
+      }
       MV_CC_SetEnumValue(camera_handle_, "TriggerSource", trigger_source);
       MV_CC_SetEnumValue(camera_handle_, "TriggerActivation", trigger_activation);
     }
-    RCLCPP_INFO(this->get_logger(), "Trigger Mode set to %s", trigger_mode ? "On" : "Off");
+    RCLCPP_INFO(this->get_logger(), "Trigger Mode set to %s", trigger_mode_ ? "On" : "Off");
   } else {
     RCLCPP_ERROR(this->get_logger(), "\033[31mFailed to set Trigger Mode, status = %d", status);
   }
@@ -158,6 +173,7 @@ void HikCameraRos2DriverNode::startCamera()
 
   auto qos = use_sensor_data_qos ? rmw_qos_profile_sensor_data : rmw_qos_profile_default;
   camera_pub_ = image_transport::create_camera_publisher(this, camera_topic_, qos);
+  imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("imu/data2", 10);
 
   MV_CC_StartGrabbing(camera_handle_);
 
@@ -171,6 +187,34 @@ void HikCameraRos2DriverNode::startCamera()
     camera_info_msg_ = camera_info_manager_->getCameraInfo();
   } else {
     RCLCPP_WARN(this->get_logger(), "\033[33mInvalid camera info URL: %s", camera_info_url.c_str());
+  }
+}
+
+void HikCameraRos2DriverNode::syncReceiveLoop()
+{
+  // std::cout << "\033[32mEntering sync receive loop!\033[0m" << std::endl;
+  while (true) {
+    sync_proto::Envelope msg;
+    auto id = client_->receiveLoopOnce(msg);
+    // std::cout << "\033[32mReceived sync message with ID: " << id << "\033[0m" << std::endl;
+    if (id == sync_proto::MessageID::MSG_IMU_RAW) {
+      const auto &imu = msg.imu_raw();
+      sensor_msgs::msg::Imu imu_msg;
+      uint64_t timestamp_ns = static_cast<uint64_t>(imu.time_us()) * 1000ULL;
+      imu_msg.header.stamp = rclcpp::Time(static_cast<int64_t>(timestamp_ns));
+      imu_msg.header.frame_id = "imu_link";
+      imu_msg.linear_acceleration.x = imu.ax();
+      imu_msg.linear_acceleration.y = imu.ay();
+      imu_msg.linear_acceleration.z = imu.az();
+      imu_msg.angular_velocity.x = imu.gx();
+      imu_msg.angular_velocity.y = imu.gy();
+      imu_msg.angular_velocity.z = imu.gz();
+      // std::cout << "\033[32mReceived IMU data: time_us=" << imu.time_us()
+      //           << ", ax=" << imu.ax() << ", ay=" << imu.ay() << ", az=" << imu.az()
+      //           << ", gx=" << imu.gx() << ", gy=" << imu.gy() << ", gz=" << imu.gz()
+      //           << "\033[0m" << std::endl;
+      imu_pub_->publish(imu_msg);
+    }
   }
 }
 
@@ -203,14 +247,16 @@ void HikCameraRos2DriverNode::captureLoop()
       uint64_t timestamp_us;
       uint64_t now_timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-      if (client_ && client_->requestCameraTimestamp(now_timestamp_us, timestamp_us)) {
-        timestamp = rclcpp::Time(static_cast<int64_t>(timestamp_us * 1000ULL));
-        image_msg_.header.stamp = timestamp;
-        RCLCPP_INFO(this->get_logger(), "Camera timestamp: %ld us", timestamp_us);
-      } else {
-        timestamp = this->now();
-        image_msg_.header.stamp = timestamp;
-        RCLCPP_WARN(this->get_logger(), "Failed to get camera timestamp, using system time");
+      if (trigger_mode_) {
+        if (client_ && client_->requestCameraTimestamp(now_timestamp_us, timestamp_us)) {
+          timestamp = rclcpp::Time(static_cast<int64_t>(timestamp_us * 1000ULL));
+          image_msg_.header.stamp = timestamp;
+          // RCLCPP_INFO(this->get_logger(), "Camera timestamp: %ld us", timestamp_us);
+        } else {
+          timestamp = this->now();
+          image_msg_.header.stamp = timestamp;
+          RCLCPP_WARN(this->get_logger(), "Failed to get camera timestamp, using system time");
+        }
       }
 #endif
 
