@@ -9,6 +9,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
+#include <cstdint>
+#include <mutex>
 #include "sync.pb.h"
 #include <deque>
 #include <iomanip>
@@ -185,6 +187,7 @@ public:
         out.append(serialized_data);
 
         send(data_sock_, out.c_str(), out.size(), 0);
+        return true;
     }
 
     sync_proto::MessageID receiveLoopOnce(sync_proto::Envelope &msg)
@@ -221,8 +224,6 @@ public:
             }
             total_msg_str_.append(buffer, n);
         }
-        auto now = std::chrono::system_clock::now();
-        auto now_us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
         pos = 0;
         if ((pos = total_msg_str_.find("\xA1\xCA", pos)) != std::string::npos)
         {
@@ -302,6 +303,7 @@ public:
                 // break;
             }
         }
+        return sync_proto::MessageID::MSG_UNKNOWN;
     }
     void receiveThreadStart()
     {

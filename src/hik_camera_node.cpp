@@ -137,6 +137,7 @@ void HikCameraRos2DriverNode::configureParameters()
   status = MV_CC_SetEnumValue(camera_handle_, "TriggerMode", trigger_mode);
   if (status == MV_OK) {
     if (trigger_mode) {
+      client_ = std::make_unique<SyncClient>("127.0.0.1", BASE_PORT);
       MV_CC_SetEnumValue(camera_handle_, "TriggerSource", trigger_source);
       MV_CC_SetEnumValue(camera_handle_, "TriggerActivation", trigger_activation);
     }
@@ -181,6 +182,11 @@ void HikCameraRos2DriverNode::captureLoop()
   while (rclcpp::ok()) {
     n_ret_ = MV_CC_GetImageBuffer(camera_handle_, &out_frame, 1000);
     if (n_ret_ == MV_OK) {
+      image_msg_.height = out_frame.stFrameInfo.nHeight;
+      image_msg_.width = out_frame.stFrameInfo.nWidth;
+      image_msg_.step = out_frame.stFrameInfo.nWidth * 3;
+      image_msg_.data.resize(image_msg_.width * image_msg_.height * 3);
+
       convert_param_.pDstBuffer = image_msg_.data.data();
       convert_param_.nDstBufferSize = image_msg_.data.size();
 
@@ -191,10 +197,6 @@ void HikCameraRos2DriverNode::captureLoop()
       MV_CC_ConvertPixelType(camera_handle_, &convert_param_);
 
       image_msg_.header.stamp = this->now();
-      image_msg_.height = out_frame.stFrameInfo.nHeight;
-      image_msg_.width = out_frame.stFrameInfo.nWidth;
-      image_msg_.step = out_frame.stFrameInfo.nWidth * 3;
-      image_msg_.data.resize(image_msg_.width * image_msg_.height * 3);
 
 #ifdef SYNC_BOARD_MACRO_HPP // 时间同步
       rclcpp::Time timestamp;
@@ -202,10 +204,12 @@ void HikCameraRos2DriverNode::captureLoop()
       uint64_t now_timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
       if (client_ && client_->requestCameraTimestamp(now_timestamp_us, timestamp_us)) {
-        timestamp = rclcpp::Time(timestamp_us);
+        timestamp = rclcpp::Time(static_cast<int64_t>(timestamp_us * 1000ULL));
+        image_msg_.header.stamp = timestamp;
         RCLCPP_INFO(this->get_logger(), "Camera timestamp: %ld us", timestamp_us);
       } else {
         timestamp = this->now();
+        image_msg_.header.stamp = timestamp;
         RCLCPP_WARN(this->get_logger(), "Failed to get camera timestamp, using system time");
       }
 #endif
@@ -280,7 +284,7 @@ rcl_interfaces::msg::SetParametersResult HikCameraRos2DriverNode::dynamicParamet
   return result;
 }
 
-void HikCameraRos2DriverNode::tryConnectGigE()
+bool HikCameraRos2DriverNode::tryConnectGigE()
 {
   MV_CC_DEVICE_INFO stDevInfo; MV_GIGE_DEVICE_INFO stGigEDev;
   memset(&stDevInfo, 0, sizeof(MV_CC_DEVICE_INFO));
@@ -296,7 +300,7 @@ void HikCameraRos2DriverNode::tryConnectGigE()
   n_ret_ = MV_CC_CreateHandle(&camera_handle_, &stDevInfo);
   if (n_ret_ != MV_OK) {
     std::cerr << "\033[31mCreate Handle fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
-    return;
+    return false;
   }
   
   // 打开设备
@@ -304,7 +308,7 @@ void HikCameraRos2DriverNode::tryConnectGigE()
   if (n_ret_ != MV_OK) {
     std::cerr << "\033[31mOpen device fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
     MV_CC_DestroyHandle(camera_handle_); camera_handle_ = nullptr;
-    return;
+    return false;
   }
   
   // 获取 GigE 相机的最佳数据包大小
@@ -313,12 +317,13 @@ void HikCameraRos2DriverNode::tryConnectGigE()
     n_ret_ = MV_CC_SetIntValue(camera_handle_, "GevSCPSPacketSize", nPacketSize);
     if (n_ret_ != MV_OK) {
       std::cerr << "\033[31mSet Packet Size fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
-      return;
+      return false;
     }
   }
+  return true;
 }
 
-void HikCameraRos2DriverNode::tryConnectUSB()
+bool HikCameraRos2DriverNode::tryConnectUSB()
 {
   // 枚举USB设备
   MV_CC_DEVICE_INFO_LIST stDeviceList;
@@ -327,24 +332,24 @@ void HikCameraRos2DriverNode::tryConnectUSB()
   n_ret_ = MV_CC_EnumDevices(MV_USB_DEVICE, &stDeviceList);
   if (n_ret_ != MV_OK) {
     std::cerr << "\033[31mEnum USB devices fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
-    return;
+    return false;
   }
   
   if (stDeviceList.nDeviceNum == 0) {
     std::cerr << "\033[31mNo USB camera found!\033[0m" << std::endl;
-    return;
+    return false;
   }
   
   if (deviceIndex_ >= static_cast<int>(stDeviceList.nDeviceNum)) {
     std::cerr << "\033[31mDevice index out of range! Found " << stDeviceList.nDeviceNum << " devices.\033[0m" << std::endl;
-    return;
+    return false;
   }
   
   // 创建句柄
   n_ret_ = MV_CC_CreateHandle(&camera_handle_, stDeviceList.pDeviceInfo[deviceIndex_]);
   if (n_ret_ != MV_OK) {
     std::cerr << "\033[31mCreate Handle fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
-    return;
+    return false;
   }
 
   // 打开设备
@@ -352,8 +357,9 @@ void HikCameraRos2DriverNode::tryConnectUSB()
   if (n_ret_ != MV_OK) {
     std::cerr << "\033[31mOpen device fail! nRet[0x" << std::hex << n_ret_ << "]" << "\033[0m" << std::endl;
     MV_CC_DestroyHandle(camera_handle_); camera_handle_  = nullptr;
-    return;
+    return false;
   }
+  return true;
 }
 
 } // namespace hik_camera_ros2_driver

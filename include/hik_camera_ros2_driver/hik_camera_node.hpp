@@ -30,7 +30,8 @@ private: // function
   void configureParameters();
   void startCamera();
   rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(const std::vector<rclcpp::Parameter> & parameters);
-  void tryConnectGigE(); void tryConnectUSB();
+  bool tryConnectGigE();
+  bool tryConnectUSB();
   void captureLoop();
 
 private: // MVS相关全局变量

@@ -42,6 +42,7 @@ target_link_libraries(${PROJECT_NAME}
   MvCameraControl
   MVRender
   MvUsb3vTL
+  ${Protobuf_LIBRARIES}
 )
 
 rclcpp_components_register_node(${PROJECT_NAME}
